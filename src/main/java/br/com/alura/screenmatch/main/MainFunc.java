@@ -8,6 +8,7 @@ import br.com.alura.screenmatch.service.ApiCallOmdb;
 import br.com.alura.screenmatch.service.ConverterDados;
 
 import java.io.IOException;
+import java.text.DecimalFormat;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -53,20 +54,45 @@ public class MainFunc {
                             .map(d -> new Episodio(t.temporada(), d))
                     ).collect(Collectors.toList());
             episodios.forEach(System.out::println);
+            System.out.println("Top10 ep");
+            dadosEpisodios.stream()
+                    .filter(e ->!e.avaliacao().equalsIgnoreCase("N/A"))
+                    .sorted(Comparator.comparing(DadosEpisodio::avaliacao).reversed())
+                    .limit(10)
+                    .map(e-> e.titulo().toUpperCase())
+                    .forEach(System.out::println);
+            Map<Integer, Double> mediaPTemp = temporadas.stream()
+                    .collect(Collectors.toMap(
+                            t -> t.temporada(),
+                            t -> t.episodios().stream()
+                                    .filter(e -> !e.avaliacao().equalsIgnoreCase("N/A"))
+                                    .mapToDouble(e-> Double.parseDouble(e.avaliacao()))
+                                    .average()
+                                    .orElse(0.0)
+                    ));
+            DecimalFormat df = new DecimalFormat("#.00");
+            mediaPTemp.forEach((temp,media)->
+            System.out.println("Temporada"+temp+" -> Media: " +df.format(media)));
 
-            System.out.println("A partir de qual data vc quer ver");
-            var ano = leitura.nextInt();
-            leitura.nextLine();
-            LocalDate dataBusca = LocalDate.of(ano, 1 ,1);
-
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
-
-            episodios.stream()
-                    .filter(e -> e.getDataLancamento() != null && e.getDataLancamento().isAfter(dataBusca))
-                    .forEach(e -> System.out.println("Temporada:  " + e.getTemporada()+
-                            " Episodio: " + e.getEpisodio() +
-                            " Titulo: " + e.getTitulo() +
-                            " Data Lançamento: " + e.getDataLancamento().format(formatter)));
+            DoubleSummaryStatistics est = episodios.stream()
+                    .filter(e-> e.getAvaliacao() > 0.0)
+                    .collect(Collectors.summarizingDouble(Episodio::getAvaliacao));
+            System.out.println(est.getAverage());
+            System.out.println(est.getMax());
+            System.out.println(est.getMin());
+//            System.out.println("A partir de qual data vc quer ver");
+//            var ano = leitura.nextInt();
+//            leitura.nextLine();
+//            LocalDate dataBusca = LocalDate.of(ano, 1 ,1);
+//
+//            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+//
+//            episodios.stream()
+//                    .filter(e -> e.getDataLancamento() != null && e.getDataLancamento().isAfter(dataBusca))
+//                    .forEach(e -> System.out.println("Temporada:  " + e.getTemporada()+
+//                            " Episodio: " + e.getEpisodio() +
+//                            " Titulo: " + e.getTitulo() +
+//                            " Data Lançamento: " + e.getDataLancamento().format(formatter)));
         }
         catch(Exception e){
                 System.out.println("Erro " + e);

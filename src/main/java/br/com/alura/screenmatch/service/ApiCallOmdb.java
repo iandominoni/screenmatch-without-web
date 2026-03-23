@@ -34,7 +34,6 @@ public class ApiCallOmdb {
         });
 
         urlBuilder.append("apikey=").append(API_KEY);
-
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(urlBuilder.toString()))
                 .GET()
