@@ -1,6 +1,7 @@
 package br.com.alura.screenmatch.service;
 
-import io.github.cdimascio.dotenv.Dotenv;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.net.URI;
@@ -11,29 +12,32 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
+@Service
 public class ApiCallOmdb {
-    private static final Dotenv dotenv = Dotenv.load();
-    private static final String BASE_URL = "https://www.omdbapi.com/";
-    private static final String API_KEY = dotenv.get("API_KEY");
 
+    private final String baseUrl;
+    private final String apiKey;
     private final HttpClient client;
 
-    public ApiCallOmdb(){
-        this.client=HttpClient.newHttpClient();
+    public ApiCallOmdb(
+            @Value("${omdb.base-url}") String baseUrl,
+            @Value("${omdb.api-key}") String apiKey
+    ) {
+        this.baseUrl = baseUrl;
+        this.apiKey = apiKey;
+        this.client = HttpClient.newHttpClient();
     }
 
-    public String get(Map<String, String> params) throws IOException, InterruptedException{
-        StringBuilder urlBuilder = new StringBuilder(BASE_URL);
-        urlBuilder.append("?");
+    public String get(Map<String, String> params) throws IOException, InterruptedException {
+        StringBuilder urlBuilder = new StringBuilder(baseUrl).append("?");
 
-        params.forEach((key, value) -> {
-            urlBuilder.append(key)
-                    .append("=")
-                    .append(URLEncoder.encode(value, StandardCharsets.UTF_8))
-                    .append("&");
-        });
+        params.forEach((key, value) -> urlBuilder.append(key)
+                .append("=")
+                .append(URLEncoder.encode(value, StandardCharsets.UTF_8))
+                .append("&"));
 
-        urlBuilder.append("apikey=").append(API_KEY);
+        urlBuilder.append("apikey=").append(apiKey);
+
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(urlBuilder.toString()))
                 .GET()
@@ -41,7 +45,7 @@ public class ApiCallOmdb {
 
         HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
         if (response.statusCode() != 200) {
-            throw new RuntimeException("Erro na requisição: " + response.statusCode());
+            throw new RuntimeException("Erro na requisição OMDb: " + response.statusCode());
         }
         return response.body();
     }
