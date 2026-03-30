@@ -15,10 +15,10 @@ public class MainFunc {
 
     private final Scanner leitura = new Scanner(System.in);
     private final SerieService serieService;
-    private final List<DadosSerie> dadosSeries = new ArrayList<>();
 
     @Autowired
     private SerieRepository repositorio;
+
     public MainFunc(SerieService serieService) {
         this.serieService = serieService;
     }
@@ -56,22 +56,27 @@ public class MainFunc {
     }
 
     private void buscarSerie() throws Exception {
-        DadosSerie dados = getDadosSerie();
-        Serie serie = new Serie(dados);
-//        dadosSeries.add(dados);
-        repositorio.save(serie);
-        System.out.println(dados);
+        System.out.println("Digite o nome da série para buscar:");
+        String nomeSerie = leitura.nextLine().trim();
+        Serie serie = serieService.obterSerieOuBuscar(nomeSerie);
+        System.out.println(serie);
     }
 
     private void buscarEpisodiosPorSerie() throws Exception {
-        DadosSerie dadosSerie = getDadosSerie();
-        List<DadosTemporada> temporadas = serieService.buscarEpisodiosPorSerie(dadosSerie.titulo());
+        listarSeriesBuscadas();
+        System.out.println("Digite o nome da série:");
+        String nomeSerie = leitura.nextLine().trim();
+
+        Serie serie = serieService.obterSerieOuBuscar(nomeSerie);
+        List<DadosTemporada> temporadas = serieService.obterEpisodiosOuBuscar(serie);
         temporadas.forEach(System.out::println);
     }
 
     private void exibirAnalisesCompletas() throws Exception {
-        DadosSerie dadosSerie = getDadosSerie();
-        AnaliseSerieResponse analise = serieService.exibirAnalisesCompletas(dadosSerie.titulo());
+        System.out.println("Digite o nome da série:");
+        String nomeSerie = leitura.nextLine().trim();
+
+        AnaliseSerieResponse analise = serieService.exibirAnalisesCompletas(nomeSerie);
         System.out.println(analise);
     }
 
@@ -79,12 +84,11 @@ public class MainFunc {
         List<Serie> series = repositorio.findAll().stream()
                 .sorted(Comparator.comparing(Serie::getGenero))
                 .collect(Collectors.toList());
-        series.forEach(System.out::println);
-    }
 
-    private DadosSerie getDadosSerie() throws Exception {
-        System.out.println("Digite o nome da série para buscar:");
-        String nomeSerie = leitura.nextLine().trim();
-        return serieService.buscarSerie(nomeSerie);
+        if (series.isEmpty()) {
+            System.out.println("Nenhuma série cadastrada!");
+        } else {
+            series.forEach(System.out::println);
+        }
     }
 }

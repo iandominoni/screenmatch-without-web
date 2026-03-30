@@ -1,11 +1,11 @@
 package br.com.alura.screenmatch.service;
 
-import br.com.alura.screenmatch.model.DadosEpisodio;
-import br.com.alura.screenmatch.model.DadosSerie;
-import br.com.alura.screenmatch.model.DadosTemporada;
-import br.com.alura.screenmatch.model.Episodio;
+import br.com.alura.screenmatch.model.*;
+import br.com.alura.screenmatch.repository.EpisodioRepository;
+import br.com.alura.screenmatch.repository.SerieRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.text.DecimalFormat;
 import java.util.*;
@@ -13,17 +13,89 @@ import java.util.stream.Collectors;
 
 @Service
 public class SerieService {
-
     private final ApiCallOmdb api;
     private final ConverterDados conversor;
+    private final SerieRepository serieRepository;
+    private final EpisodioRepository episodioRepository;
     private final ConsultaIATraducao tradutor;
 
-    public SerieService(ApiCallOmdb api, ConverterDados conversor, ConsultaIATraducao tradutor) {
+    public SerieService(ApiCallOmdb api, ConverterDados conversor, ConsultaIATraducao tradutor,
+                        SerieRepository serieRepository, EpisodioRepository episodioRepository) {
         this.api = api;
         this.conversor = conversor;
         this.tradutor = tradutor;
+        this.serieRepository = serieRepository;
+        this.episodioRepository = episodioRepository;
     }
 
+    @Transactional
+    public Serie obterSerieOuBuscar(String nomeSerie) throws Exception {
+        Optional<Serie> serieExistente = serieRepository.findByTituloContainingIgnoreCaseWithEpisodios(nomeSerie);
+
+        if (serieExistente.isPresent()) {
+            return serieExistente.get();
+        } else {
+            System.out.println("Série não encontrada no banco. Buscando na API...");
+            return buscarESalvarSerie(nomeSerie);
+        }
+    }
+
+    @Transactional
+    public List<DadosTemporada> obterEpisodiosOuBuscar(Serie serie) throws Exception {
+        if (!serie.getEpisodios().isEmpty()) {
+            System.out.println("Episódios encontrados no banco!");
+            return converterEpisodiosParaDados(serie.getEpisodios());
+        } else {
+            System.out.println("Buscando episódios na API...");
+            List<DadosTemporada> temporadas = buscarEpisodiosPorSerie(serie.getTitulo());
+            salvarEpisodios(temporadas, serie);
+            return temporadas;
+        }
+    }
+
+    @Transactional
+    public Serie buscarESalvarSerie(String nomeSerie) throws Exception {
+        DadosSerie dadosSerie = buscarSerie(nomeSerie);
+        Serie serie = new Serie(dadosSerie);
+
+        Serie serieSalva = serieRepository.save(serie);
+
+        List<DadosTemporada> temporadas = buscarEpisodiosPorSerie(nomeSerie);
+        salvarEpisodios(temporadas, serieSalva);
+
+        return serieRepository.findByTituloContainingIgnoreCaseWithEpisodios(nomeSerie).orElse(serieSalva);
+    }
+
+
+    @Transactional
+    private void salvarEpisodios(List<DadosTemporada> temporadas, Serie serie) {
+        temporadas.forEach(temporada ->
+                temporada.episodios().forEach(dadosEpisodio -> {
+                    Episodio episodio = new Episodio(temporada.temporada(), dadosEpisodio);
+                    episodio.setSerie(serie);
+                    episodioRepository.save(episodio);
+                })
+        );
+    }
+
+    private List<DadosTemporada> converterEpisodiosParaDados(List<Episodio> episodios) {
+        Map<Integer, List<Episodio>> porTemporada = episodios.stream()
+                .collect(Collectors.groupingBy(Episodio::getTemporada));
+
+        return porTemporada.entrySet().stream()
+                .map(entry -> {
+                    List<DadosEpisodio> dados = entry.getValue().stream()
+                            .map(e -> new DadosEpisodio(
+                                    e.getTitulo(),
+                                    e.getNumero(),
+                                    String.valueOf(e.getAvaliacao()),
+                                    e.getDataLancamento() != null ? e.getDataLancamento().toString() : "N/A"
+                            ))
+                            .toList();
+                    return new DadosTemporada(entry.getKey(), dados);
+                })
+                .toList();
+    }
     public DadosSerie buscarSerie(String nomeSerie) throws Exception {
         DadosSerie dadosSerie = getDadosSeriePorNome(nomeSerie);
 
@@ -53,17 +125,15 @@ public class SerieService {
         List<DadosEpisodio> dadosEpisodios = temporadas.stream()
                 .flatMap(t -> t.episodios().stream())
                 .toList();
-
         List<Episodio> episodios = temporadas.stream()
                 .flatMap(t -> t.episodios().stream().map(d -> new Episodio(t.temporada(), d)))
                 .toList();
-
         List<String> melhores5 = episodios.stream()
                 .filter(e -> e.getAvaliacao() > 0.0)
                 .sorted(Comparator.comparingDouble(Episodio::getAvaliacao).reversed())
                 .limit(5)
                 .map(e -> "Temporada " + e.getTemporada()
-                        + " Episodio: " + e.getEpisodio()
+                        + " Episodio: " + e.getNumero()
                         + " Nome: " + e.getTitulo())
                 .toList();
 
@@ -96,19 +166,12 @@ public class SerieService {
 
     private String extrairTraducao(String json) throws Exception {
         JsonNode root = conversor.getMapper().readTree(json);
-
-        return root
-                .path("data")
-                .path("translations")
-                .get(0)
-                .path("translatedText")
-                .asText();
+        return root.path("data").path("translations").get(0).path("translatedText").asText();
     }
 
     private DadosSerie getDadosSeriePorNome(String nomeSerie) throws Exception {
         Map<String, String> paramsSerie = new HashMap<>();
         paramsSerie.put("t", nomeSerie);
-
         String responseSerie = api.get(paramsSerie);
         return conversor.obterDados(responseSerie, DadosSerie.class);
     }
