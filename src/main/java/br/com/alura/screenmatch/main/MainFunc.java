@@ -1,8 +1,10 @@
 package br.com.alura.screenmatch.main;
 
 import br.com.alura.screenmatch.model.*;
+import br.com.alura.screenmatch.repository.SerieRepository;
 import br.com.alura.screenmatch.service.AnaliseSerieResponse;
 import br.com.alura.screenmatch.service.SerieService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.util.*;
@@ -15,6 +17,8 @@ public class MainFunc {
     private final SerieService serieService;
     private final List<DadosSerie> dadosSeries = new ArrayList<>();
 
+    @Autowired
+    private SerieRepository repositorio;
     public MainFunc(SerieService serieService) {
         this.serieService = serieService;
     }
@@ -53,7 +57,9 @@ public class MainFunc {
 
     private void buscarSerie() throws Exception {
         DadosSerie dados = getDadosSerie();
-        dadosSeries.add(dados);
+        Serie serie = new Serie(dados);
+//        dadosSeries.add(dados);
+        repositorio.save(serie);
         System.out.println(dados);
     }
 
@@ -70,8 +76,7 @@ public class MainFunc {
     }
 
     private void listarSeriesBuscadas() {
-        List<Serie> series = dadosSeries.stream()
-                .map(Serie::new)
+        List<Serie> series = repositorio.findAll().stream()
                 .sorted(Comparator.comparing(Serie::getGenero))
                 .collect(Collectors.toList());
         series.forEach(System.out::println);

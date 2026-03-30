@@ -5,6 +5,7 @@ import br.com.alura.screenmatch.model.DadosSerie;
 
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 public class AnaliseSerieResponse {
     private DadosSerie serie;
@@ -38,4 +39,41 @@ public class AnaliseSerieResponse {
     public String getMediaGeral() { return mediaGeral; }
     public String getMaiorNota() { return maiorNota; }
     public String getMenorNota() { return menorNota; }
+
+    @Override
+    public String toString() {
+        return """                
+                SÉRIE: %s
+                Título: %s
+                Total de Temporadas: %d
+                Avaliação: %s
+                Gênero: %s
+                Atores: %s
+                Sinopse: %s
+                MELHORES 5 EPISÓDIOS:
+                %s
+                MÉDIA POR TEMPORADA:%s
+                ESTATÍSTICAS GERAIS:
+                Média Geral: %s
+                Maior Nota: %s
+                Menor Nota: %s
+                """.formatted(
+                serie.titulo(),
+                serie.titulo(),
+                serie.totalTemporadas(),
+                serie.avaliacao(),
+                serie.genero(),
+                serie.atores(),
+                serie.sinopse(),
+                melhores5Episodios.stream()
+                        .map(e -> "  • " + e)
+                        .collect(Collectors.joining("\n")),
+                mediaPorTemporada.entrySet().stream()
+                        .map(e -> "  Temporada " + e.getKey() + ": " + String.format("%.2f", e.getValue()))
+                        .collect(Collectors.joining("\n")),
+                mediaGeral,
+                maiorNota,
+                menorNota
+        );
+    }
 }
